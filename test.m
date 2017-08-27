@@ -1,12 +1,15 @@
-plane_dir = 'F:\ImageDatabase\shipdetection\VOC\plane\';
-ship_dir = 'F:\ImageDatabase\shipdetection\VOC\ship\';
-ship_plane_dir = 'F:\ImageDatabase\shipdetection\VOC\ship_plane\';
+% voc_dir = 'F:\ImageDatabase\shipdetection\VOC\';
+voc_dir = '/home/haoyou/ImageDB/VOCdevkit/';
 
-anno_subdir='Annotations\';
-img_subdir='JPEGImages\';
+plane_dir = [voc_dir,'plane/'];
+ship_dir = [voc_dir,'ship/'];
+ship_plane_dir = [voc_dir,'ship_plane/'];
 
-train_listfile = 'ImageSets\Main\trainval.txt';
-test_listfile = 'ImageSets\Main\test.txt';
+anno_subdir='Annotations/';
+img_subdir='JPEGImages/';
+
+train_listfile = 'ImageSets/Main/trainval.txt';
+test_listfile = 'ImageSets/Main/test.txt';
 
 [il, xl] = LoadList(ship_dir,train_listfile,anno_subdir,img_subdir);
 
@@ -16,7 +19,7 @@ for i=1:length(il)
     boxes = getBBs(xml);
     
     showImgWithBBs(img,boxes);
-    CropFull(img,boxes);
+%     CropFull(img,boxes);
 end
 
 
@@ -58,7 +61,7 @@ function showImgWithBBs(img,boxes)
 %              'backgroundcolor', 'r', 'color', 'w');
 %       end
     end
-
+    pause;
 end
 
 function [bbs] = getBBs(xml)
