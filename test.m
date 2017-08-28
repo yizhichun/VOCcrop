@@ -1,5 +1,5 @@
-% voc_dir = 'F:\ImageDatabase\shipdetection\VOC\';
-voc_dir = '/home/haoyou/ImageDB/VOCdevkit/';
+voc_dir = 'F:\ImageDatabase\shipdetection\VOC\';
+% voc_dir = '/home/haoyou/ImageDB/VOCdevkit/';
 
 plane_dir = [voc_dir,'plane/'];
 ship_dir = [voc_dir,'ship/'];
@@ -7,6 +7,9 @@ ship_plane_dir = [voc_dir,'ship_plane/'];
 
 anno_subdir='Annotations/';
 img_subdir='JPEGImages/';
+
+anno_subdir_croped='Annotations_croped/';
+img_subdir_croped='JPEGImages_croped/';
 
 train_listfile = 'ImageSets/Main/trainval.txt';
 test_listfile = 'ImageSets/Main/test.txt';
@@ -16,10 +19,15 @@ test_listfile = 'ImageSets/Main/test.txt';
 for i=1:length(il)
     img = imread(il{i});
     xml = xml2struct(xl{i});
-    boxes = getBBs(xml);
+    boxes = getBBsFromXml(xml);
     
-    showImgWithBBs(img,boxes);
-%     CropFull(img,boxes);
+    showImgWithBBs(img,boxes,'r');
+    [imgs_croped, boxes_croped] = CropFull(img,boxes);
+    
+    for i_img=1:size(imgs_croped,1)        
+        xml_croped{i_img} = getXmlFromBBs(boxes_croped{i_img},xml);
+        saveCroped(voc_dir,imgs_croped{i_img},xml_croped{i_img});
+    end
 end
 
 
@@ -36,7 +44,7 @@ function [img_list, xml_list]=LoadList(root_dir,listfile,anno_subdir,img_subdir)
     end
 end
 
-function showImgWithBBs(img,boxes)
+function showImgWithBBs(img,boxes,c)
     
     if size(img,3)==1
         img=cat(3, img, img, img);
@@ -51,7 +59,7 @@ function showImgWithBBs(img,boxes)
       y1 = boxes(:, 2);
       x2 = boxes(:, 3);
       y2 = boxes(:, 4);
-      c = 'r';
+%       c = 'r';
       s = '-';
       line([x1 x1 x2 x2 x1]', [y1 y2 y2 y1 y1]', ...
            'color', c, 'linewidth', 2, 'linestyle', s);
@@ -64,7 +72,7 @@ function showImgWithBBs(img,boxes)
     pause;
 end
 
-function [bbs] = getBBs(xml)
+function [bbs] = getBBsFromXml(xml)
     % judge if object is 'bndbox'.
     if length(xml.annotation.object)==1
         if isfield(xml.annotation.object,'type') && ...
@@ -93,41 +101,137 @@ function [bbs] = getBBs(xml)
     end
 end
 
-function [imgRes,xmlRes] = CropRandom(img,xml)
+
+function xml_croped = getXmlFromBBs(boxes_croped, xml_model)
+    object_model = xml_model.annotation.object{1};
+    if isnull(boxes_croped)
+       xml_croped=[];
+    elseif size(boxes_croped,1)==1
+        tempbox
+        xml_croped.annotation.object=
+    else
+        
+    end        
+end
+
+function saveCroped(voc_dir,imgs_croped,xml_croped)
 
 end
 
-function [imgs,xmls] = CropFull(img,xml)
-    CROP_SIZE_H = 256;
-    CROP_SIZE_W = 256;
+function [imgRes,xmlRes] = CropRandom(img,xml)
+    
+end
+
+function [imgs_croped,boxes_croped] = CropFull(img,boxes)
+    
     [h,w,~]=size(img);
+    
+    mean_h = mean(boxes(:,4)-boxes(:,2));
+    mean_w = mean(boxes(:,3)-boxes(:,1));
+
+    CROP_SIZE_H = min(round((min(h/2,mean_h*10) + min(w/2,mean_w*10))/2), min(h,w));
+    CROP_SIZE_W = CROP_SIZE_H;
+
+%     CROP_SIZE_H = 256;
+%     CROP_SIZE_W = 256;
+    
     if h<=CROP_SIZE_H || w<=CROP_SIZE_W
-        [imgs,xmls] = CropRandom(img,xml);
+        [imgs_croped,boxes_croped] = CropRandom(img,boxes);
         return;
     end
     
-    num_h = ceil(h/256);
-    num_w = ceil(w/256);
+    [rects_croped] = GridImg(img, CROP_SIZE_H, CROP_SIZE_W);    
+    showImgWithBBs(img,rects_croped,'r');  
+    
+    boxes_cx=(boxes(:,3)+boxes(:,1))/2;
+    boxes_cy=(boxes(:,4)+boxes(:,2))/2;
+    
+    for i=1:size(rects_croped,1)
+        boxes_croped{i,1}=[];
+    end
+    
+    for i=1:size(boxes,1)
+        idx = find(rects_croped(:,1)<boxes_cx(i) & rects_croped(:,3)>boxes_cx(i) & ...
+            rects_croped(:,2)<boxes_cy(i) & rects_croped(:,4) > boxes_cy(i));
+        for j=1:size(idx)
+            boxes_croped{idx(j),1}=[boxes_croped{idx(j),1};boxes(i,:)];
+        end
+    end
+    
+    idx_null=logical(size(rects_croped,1));
+    
+    for i=1:size(rects_croped,1)
+        idx_null(i) = isempty(boxes_croped{i});
+        if ~idx_null(i)   
+
+            boxes_croped{i}(:,1) = boxes_croped{i}(:,1) - rects_croped(i,1) + 1; 
+            boxes_croped{i}(:,3) = boxes_croped{i}(:,3) - rects_croped(i,1) + 1;
+            boxes_croped{i}(:,2) = boxes_croped{i}(:,2) - rects_croped(i,2) + 1;
+            boxes_croped{i}(:,4) = boxes_croped{i}(:,4) - rects_croped(i,2) + 1;
+            
+            boxes_croped{i}(boxes_croped{i}(:,1)<1,1) = 1;
+            boxes_croped{i}(boxes_croped{i}(:,2)<1,2) = 1;
+            boxes_croped{i}(boxes_croped{i}(:,3)>CROP_SIZE_W,3) = CROP_SIZE_W;            
+            boxes_croped{i}(boxes_croped{i}(:,4)>CROP_SIZE_H,4) = CROP_SIZE_H;
+            
+        end
+    end
+    
+    for i=1:size(rects_croped,1)
+        imgs_croped{i} = imcrop(img,[rects_croped(i,1),rects_croped(i,2),CROP_SIZE_W,CROP_SIZE_H]);
+        imshow(imgs_croped{i});
+        showImgWithBBs(imgs_croped{i},boxes_croped{i},'b');
+        pause;
+    end
+    
+end
+
+function [bbs] = GridImg(img, CROP_SIZE_H, CROP_SIZE_W)
+    [h,w,~]=size(img);
+    num_h = ceil(h/CROP_SIZE_H)*2;
+    num_w = ceil(w/CROP_SIZE_W)*2;
     for i=1:num_h
-        y_end(i) = round(h/num_h);
-        y_start(i) = y_end(i) - 256 + 1;
+        y_end(i) = CROP_SIZE_H + round((i-1)*(h-CROP_SIZE_H)/(num_h-1));
+        y_start(i) = y_end(i) - CROP_SIZE_H + 1;
     end
     
     for i=1:num_w
-        x_end(i) = round(w/num_w);
-        x_start(i) = x_end(i) - 256 + 1;
+        x_end(i) = CROP_SIZE_W + round((i-1)*(w-CROP_SIZE_W)/(num_w-1));
+        x_start(i) = x_end(i) - CROP_SIZE_W + 1;
     end
     
     i_img=1;
     for i_x=1:num_w
         for i_y=1:num_h
-            temp_rect = [x_start(i_x) y_start(i_y) x_end(i_y) y_end(i_y)];
-            imgs{i_img} = imcrop(img,temp_rect);
-            imshow(imgs{i_img});
+            temp_rect = [x_start(i_x) y_start(i_y) x_end(i_x) y_end(i_y)];
+            bbs(i_img,1) = x_start(i_x);
+            bbs(i_img,2) = y_start(i_y);
+            bbs(i_img,3) = x_end(i_x);
+            bbs(i_img,4) = y_end(i_y);
+%             imgs{i_img} = imcrop(img,temp_rect);
+%             imshow(imgs{i_img});
             i_img = i_img+1;            
         end
     end
-    
+%     bbs2=[];
+%     bbs2(:,1)=bbs(:,1)+round((w-CROP_SIZE_W)/(num_w-1))/2;
+%     bbs2(:,3)=bbs(:,3)+round((w-CROP_SIZE_W)/(num_w-1))/2;
+%     bbs2(:,2)=bbs(:,2)+round((h-CROP_SIZE_H)/(num_h-1))/2;
+%     bbs2(:,4)=bbs(:,4)+round((h-CROP_SIZE_H)/(num_h-1))/2;
+%     
+%     i_img=1;
+%     for i_x=1:num_w-1
+%         for i_y=1:num_h-1
+%             temp_rect = [x_start(i_x) y_start(i_y) x_end(i_x) y_end(i_y)];
+%             bbs2(i_img,1) = x_start(i_x)+round((w-CROP_SIZE_W)/(num_w-1))/2;
+%             bbs2(i_img,2) = y_start(i_y)+round((h-CROP_SIZE_H)/(num_h-1))/2;
+%             bbs2(i_img,3) = x_end(i_x)+round((w-CROP_SIZE_W)/(num_w-1))/2;
+%             bbs2(i_img,4) = y_end(i_y)+round((h-CROP_SIZE_H)/(num_h-1))/2;
+% %             imgs{i_img} = imcrop(img,temp_rect);
+% %             imshow(imgs{i_img});
+%             i_img = i_img+1;            
+%         end
+%     end
 end
 
 function [imgRes,xmlRes] = RotateWithBB(img,xml,angle)
