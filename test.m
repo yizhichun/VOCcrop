@@ -1,6 +1,8 @@
 voc_dir = 'F:\ImageDatabase\shipdetection\VOC\';
 % voc_dir = '/home/haoyou/ImageDB/VOCdevkit/';
 
+xml_model_filepath = [voc_dir,'xml_model.xml'];
+
 plane_dir = [voc_dir,'plane/'];
 ship_dir = [voc_dir,'ship/'];
 ship_plane_dir = [voc_dir,'ship_plane/'];
@@ -26,7 +28,7 @@ for i=1:length(pl)
     
     for i_img=1:size(imgs_croped,1)
         disp(['Process ',num2str(i),' images, ',num2str(i_img),' croped...']);
-        xml_croped{i_img,1} = getXmlFromBBs(boxes_croped{i_img},xml);  
+        xml_croped{i_img,1} = getXmlFromBBs(boxes_croped{i_img},xml2struct(xml_model_filepath));  
         if ~isempty(xml_croped{i_img})
             saveCroped(ship_dir,img_subdir_croped,anno_subdir_croped,nl{i},i_img,imgs_croped{i_img},xml_croped{i_img});
         end
