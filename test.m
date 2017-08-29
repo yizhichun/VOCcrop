@@ -1,5 +1,5 @@
-voc_dir = 'F:\ImageDatabase\shipdetection\VOC\';
-% voc_dir = '/home/haoyou/ImageDB/VOCdevkit/';
+% voc_dir = 'F:\ImageDatabase\shipdetection\VOC\';
+voc_dir = '/home/haoyou/ImageDB/VOCdevkit/';
 
 plane_dir = [voc_dir,'plane/'];
 ship_dir = [voc_dir,'ship/'];
@@ -19,10 +19,10 @@ test_listfile = 'ImageSets/Main/test.txt';
 for i=1:length(il)
     img = imread(il{i});
     xml = xml2struct(xl{i});
-    boxes = getBBsFromXml(xml);
+    [boxes,labels] = getBBsFromXml(xml);
     
     showImgWithBBs(img,boxes,'r');
-    [imgs_croped, boxes_croped] = CropFull(img,boxes);
+    [imgs_croped, boxes_croped] = CropFull(img,boxes,labels);
     
     for i_img=1:size(imgs_croped,1)        
         xml_croped{i_img} = getXmlFromBBs(boxes_croped{i_img},xml);
@@ -72,7 +72,7 @@ function showImgWithBBs(img,boxes,c)
     pause;
 end
 
-function [bbs] = getBBsFromXml(xml)
+function [bbs,labels] = getBBsFromXml(xml)
     % judge if object is 'bndbox'.
     if length(xml.annotation.object)==1
         if isfield(xml.annotation.object,'type') && ...
@@ -83,6 +83,7 @@ function [bbs] = getBBsFromXml(xml)
             bbs(1,2) = str2num(xml.annotation.object.bndbox.ymin.Text);
             bbs(1,3) = str2num(xml.annotation.object.bndbox.xmax.Text);
             bbs(1,4) = str2num(xml.annotation.object.bndbox.ymax.Text);
+            labels{1} = xml.annotation.object.name.Text;
         end
     else    
         i=1;
@@ -95,6 +96,7 @@ function [bbs] = getBBsFromXml(xml)
                 bbs(i,2) = str2num(xml.annotation.object{o}.bndbox.ymin.Text);
                 bbs(i,3) = str2num(xml.annotation.object{o}.bndbox.xmax.Text);
                 bbs(i,4) = str2num(xml.annotation.object{o}.bndbox.ymax.Text);
+                labels{i} = xml.annotation.object{o}.name.Text;
                 i=i+1;
             end
         end                
@@ -104,13 +106,27 @@ end
 
 function xml_croped = getXmlFromBBs(boxes_croped, xml_model)
     object_model = xml_model.annotation.object{1};
-    if isnull(boxes_croped)
+    object_model.bndbox=[];
+    if isempty(boxes_croped)
        xml_croped=[];
     elseif size(boxes_croped,1)==1
-        tempbox
-        xml_croped.annotation.object=
+        tempbox.xmin = num2str(boxes_croped.bndboxes(1,1));
+        tempbox.ymin = num2str(boxes_croped.bndboxes(1,2));
+        tempbox.xmax = num2str(boxes_croped.bndboxes(1,3));
+        tempbox.ymax = num2str(boxes_croped.bndboxes(1,4));
+        object_model.name.Text=boxes_croped.labels{1};
+        object_model.bndbox=tempbox;
+        xml_croped.annotation.object=object_model;
     else
-        
+        for i=1:boxes_croped
+            tempbox.xmin = num2str(boxes_croped.bndboxes(i,1));
+            tempbox.ymin = num2str(boxes_croped.bndboxes(i,2));
+            tempbox.xmax = num2str(boxes_croped.bndboxes(i,3));
+            tempbox.ymax = num2str(boxes_croped.bndboxes(i,4));
+            object_model.name.Text=boxes_croped.labels{i};
+            object_model.bndbox=tempbox;
+            xml_croped.annotation.object{i}=object_model;
+        end
     end        
 end
 
@@ -122,7 +138,7 @@ function [imgRes,xmlRes] = CropRandom(img,xml)
     
 end
 
-function [imgs_croped,boxes_croped] = CropFull(img,boxes)
+function [imgs_croped,boxes_croped] = CropFull(img,boxes,labels)
     
     [h,w,~]=size(img);
     
@@ -147,32 +163,34 @@ function [imgs_croped,boxes_croped] = CropFull(img,boxes)
     boxes_cy=(boxes(:,4)+boxes(:,2))/2;
     
     for i=1:size(rects_croped,1)
-        boxes_croped{i,1}=[];
+        boxes_croped{i,1}.bndboxes=[];
+        boxes_croped{i,1}.labels=[];
     end
     
     for i=1:size(boxes,1)
         idx = find(rects_croped(:,1)<boxes_cx(i) & rects_croped(:,3)>boxes_cx(i) & ...
             rects_croped(:,2)<boxes_cy(i) & rects_croped(:,4) > boxes_cy(i));
         for j=1:size(idx)
-            boxes_croped{idx(j),1}=[boxes_croped{idx(j),1};boxes(i,:)];
+            boxes_croped{idx(j),1}.bndboxes=[boxes_croped{idx(j),1}.bndboxes;boxes(i,:)];
+            boxes_croped{idx(j),1}.labels{end+1,1}=labels{i};
         end
     end
     
     idx_null=logical(size(rects_croped,1));
     
     for i=1:size(rects_croped,1)
-        idx_null(i) = isempty(boxes_croped{i});
+        idx_null(i) = isempty(boxes_croped{i}.bndboxes);
         if ~idx_null(i)   
 
-            boxes_croped{i}(:,1) = boxes_croped{i}(:,1) - rects_croped(i,1) + 1; 
-            boxes_croped{i}(:,3) = boxes_croped{i}(:,3) - rects_croped(i,1) + 1;
-            boxes_croped{i}(:,2) = boxes_croped{i}(:,2) - rects_croped(i,2) + 1;
-            boxes_croped{i}(:,4) = boxes_croped{i}(:,4) - rects_croped(i,2) + 1;
+            boxes_croped{i}.bndboxes(:,1) = boxes_croped{i}.bndboxes(:,1) - rects_croped(i,1) + 1; 
+            boxes_croped{i}.bndboxes(:,3) = boxes_croped{i}.bndboxes(:,3) - rects_croped(i,1) + 1;
+            boxes_croped{i}.bndboxes(:,2) = boxes_croped{i}.bndboxes(:,2) - rects_croped(i,2) + 1;
+            boxes_croped{i}.bndboxes(:,4) = boxes_croped{i}.bndboxes(:,4) - rects_croped(i,2) + 1;
             
-            boxes_croped{i}(boxes_croped{i}(:,1)<1,1) = 1;
-            boxes_croped{i}(boxes_croped{i}(:,2)<1,2) = 1;
-            boxes_croped{i}(boxes_croped{i}(:,3)>CROP_SIZE_W,3) = CROP_SIZE_W;            
-            boxes_croped{i}(boxes_croped{i}(:,4)>CROP_SIZE_H,4) = CROP_SIZE_H;
+            boxes_croped{i}.bndboxes(boxes_croped{i}.bndboxes(:,1)<1,1) = 1;
+            boxes_croped{i}.bndboxes(boxes_croped{i}.bndboxes(:,2)<1,2) = 1;
+            boxes_croped{i}.bndboxes(boxes_croped{i}.bndboxes(:,3)>CROP_SIZE_W,3) = CROP_SIZE_W;            
+            boxes_croped{i}.bndboxes(boxes_croped{i}.bndboxes(:,4)>CROP_SIZE_H,4) = CROP_SIZE_H;
             
         end
     end
@@ -180,7 +198,7 @@ function [imgs_croped,boxes_croped] = CropFull(img,boxes)
     for i=1:size(rects_croped,1)
         imgs_croped{i} = imcrop(img,[rects_croped(i,1),rects_croped(i,2),CROP_SIZE_W,CROP_SIZE_H]);
         imshow(imgs_croped{i});
-        showImgWithBBs(imgs_croped{i},boxes_croped{i},'b');
+        showImgWithBBs(imgs_croped{i},boxes_croped{i}.bndboxes,'b');
         pause;
     end
     
