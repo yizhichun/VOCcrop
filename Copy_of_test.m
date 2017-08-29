@@ -16,7 +16,7 @@ img_subdir_croped='JPEGImages_croped/';
 train_listfile = 'ImageSets/Main/trainval.txt';
 test_listfile = 'ImageSets/Main/test.txt';
 
-[pl, nl, xl] = LoadList(ship_dir,test_listfile,anno_subdir,img_subdir);
+[pl, nl, xl] = LoadList(plane_dir,test_listfile,anno_subdir,img_subdir);
 
 for i=1:length(pl)
     img = imread(pl{i});
@@ -107,45 +107,6 @@ function [bbs,labels] = getBBsFromXml(xml)
             end
         end                
     end
-end
-
-
-function [rbbs,labels] = getRBBsFromXml(xml)
-    % judge if object is 'bndbox'.
-    if length(xml.annotation.object)==1
-        if isfield(xml.annotation.object,'type') && ...
-                strcmp(xml.annotation.object.type.Text,'robndbox') || ...
-                ~isfield(xml.annotation.object,'type')
-%             bbs{1,:} = xml.annotation.object.bndbox;
-            rbbs(1,1) = str2num(xml.annotation.object.robndbox.cx.Text);
-            rbbs(1,2) = str2num(xml.annotation.object.robndbox.cy.Text);
-            rbbs(1,3) = str2num(xml.annotation.object.robndbox.w.Text);
-            rbbs(1,4) = str2num(xml.annotation.object.robndbox.h.Text);
-            rbbs(1,5) = str2num(xml.annotation.object.robndbox.angle.Text);
-            labels{1} = xml.annotation.object.name.Text;
-        end
-    else    
-        i=1;
-        for o=1:length(xml.annotation.object)  
-            if isfield(xml.annotation.object{o},'type') && ...
-                    strcmp(xml.annotation.object{o}.type.Text,'robndbox') || ...
-                    ~isfield(xml.annotation.object,'type')
-%                 bbs{i,:} = xml.annotation.object{o}.bndbox;
-                rbbs(1,1) = str2num(xml.annotation.object{i}.robndbox.cx.Text);
-                rbbs(1,2) = str2num(xml.annotation.object{i}.robndbox.cy.Text);
-                rbbs(1,3) = str2num(xml.annotation.object{i}.robndbox.w.Text);
-                rbbs(1,4) = str2num(xml.annotation.object{i}.robndbox.h.Text);
-                rbbs(1,5) = str2num(xml.annotation.object{i}.robndbox.angle.Text);
-                labels{i} = xml.annotation.object{o}.name.Text;
-                i=i+1;
-            end
-        end                
-    end
-end
-
-
-function bb = getBBFromRBB(rbb)
-    
 end
 
 
@@ -307,15 +268,11 @@ function [bbs] = GridImg(img, CROP_SIZE_H, CROP_SIZE_W)
 %     end
 end
 
-function img_rotated = RotateImageWithFilled(im, angle)
-    s   = ceil(size(im)/2);
-    imP = padarray(im, s(1:2), 'replicate', 'both');
-    imR = imrotate(imP, angle);
-    S   = ceil(size(imR)/2);
-    img_rotated = imR(S(1)-s(1):S(1)+s(1)-1, S(2)-s(2):S(2)+s(2)-1, :); 
+function [imgRes,xmlRes] = RotateWithBB(img,xml,angle)
+
 end
 
-function [imgRes,xmlRes] = Rotate(img,xml,angle)
+function [imgRes,xmlRes] = RotateWithRBB(img,xml,angle)
 
 end
 
