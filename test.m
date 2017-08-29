@@ -1,5 +1,5 @@
-% voc_dir = 'F:\ImageDatabase\shipdetection\VOC\';
-voc_dir = '/home/haoyou/ImageDB/VOCdevkit/';
+voc_dir = 'F:\ImageDatabase\shipdetection\VOC\';
+% voc_dir = '/home/haoyou/ImageDB/VOCdevkit/';
 
 plane_dir = [voc_dir,'plane/'];
 ship_dir = [voc_dir,'ship/'];
@@ -14,24 +14,27 @@ img_subdir_croped='JPEGImages_croped/';
 train_listfile = 'ImageSets/Main/trainval.txt';
 test_listfile = 'ImageSets/Main/test.txt';
 
-[il, xl] = LoadList(ship_dir,train_listfile,anno_subdir,img_subdir);
+[pl, nl, xl] = LoadList(ship_dir,train_listfile,anno_subdir,img_subdir);
 
-for i=1:length(il)
-    img = imread(il{i});
+for i=1:length(pl)
+    img = imread(pl{i});
     xml = xml2struct(xl{i});
     [boxes,labels] = getBBsFromXml(xml);
-    
-    showImgWithBBs(img,boxes,'r');
+    disp(['Process ',num2str(i),' images...']);
+%     showImgWithBBs(img,boxes,'r');
     [imgs_croped, boxes_croped] = CropFull(img,boxes,labels);
     
-    for i_img=1:size(imgs_croped,1)        
-        xml_croped{i_img} = getXmlFromBBs(boxes_croped{i_img},xml);
-        saveCroped(voc_dir,imgs_croped{i_img},xml_croped{i_img});
+    for i_img=1:size(imgs_croped,1)
+        disp(['Process ',num2str(i),' images, ',num2str(i_img),' croped...']);
+        xml_croped{i_img,1} = getXmlFromBBs(boxes_croped{i_img},xml);  
+        if ~isempty(xml_croped{i_img})
+            saveCroped(ship_dir,img_subdir_croped,anno_subdir_croped,nl{i},i_img,imgs_croped{i_img},xml_croped{i_img});
+        end
     end
 end
 
 
-function [img_list, xml_list]=LoadList(root_dir,listfile,anno_subdir,img_subdir)
+function [path_list, name_list, xml_list]=LoadList(root_dir,listfile,anno_subdir,img_subdir)
     if exist([root_dir, listfile],'file')
         dbinfo = textread([root_dir, listfile],'%s');
     else
@@ -39,7 +42,8 @@ function [img_list, xml_list]=LoadList(root_dir,listfile,anno_subdir,img_subdir)
         return;
     end
     for i=1:length(dbinfo)
-        img_list{i,:} = [root_dir,img_subdir,dbinfo{i},'.jpg'];
+        path_list{i,:} = [root_dir,img_subdir,dbinfo{i},'.jpg'];
+        name_list{i,:} = dbinfo{i};
         xml_list{i,:} = [root_dir,anno_subdir,dbinfo{i},'.xml'];
     end
 end
@@ -105,24 +109,26 @@ end
 
 
 function xml_croped = getXmlFromBBs(boxes_croped, xml_model)
+    xml_croped = xml_model;
+    xml_croped.annotation.object=[];
     object_model = xml_model.annotation.object{1};
     object_model.bndbox=[];
-    if isempty(boxes_croped)
+    if isempty(boxes_croped.bndboxes)
        xml_croped=[];
-    elseif size(boxes_croped,1)==1
-        tempbox.xmin = num2str(boxes_croped.bndboxes(1,1));
-        tempbox.ymin = num2str(boxes_croped.bndboxes(1,2));
-        tempbox.xmax = num2str(boxes_croped.bndboxes(1,3));
-        tempbox.ymax = num2str(boxes_croped.bndboxes(1,4));
+    elseif size(boxes_croped.bndboxes,1)==1
+        tempbox.xmin.Text = num2str(boxes_croped.bndboxes(1,1));
+        tempbox.ymin.Text = num2str(boxes_croped.bndboxes(1,2));
+        tempbox.xmax.Text = num2str(boxes_croped.bndboxes(1,3));
+        tempbox.ymax.Text = num2str(boxes_croped.bndboxes(1,4));
         object_model.name.Text=boxes_croped.labels{1};
         object_model.bndbox=tempbox;
         xml_croped.annotation.object=object_model;
-    else
-        for i=1:boxes_croped
-            tempbox.xmin = num2str(boxes_croped.bndboxes(i,1));
-            tempbox.ymin = num2str(boxes_croped.bndboxes(i,2));
-            tempbox.xmax = num2str(boxes_croped.bndboxes(i,3));
-            tempbox.ymax = num2str(boxes_croped.bndboxes(i,4));
+    else        
+        for i=1:size(boxes_croped.bndboxes,1)
+            tempbox.xmin.Text = num2str(boxes_croped.bndboxes(i,1));
+            tempbox.ymin.Text = num2str(boxes_croped.bndboxes(i,2));
+            tempbox.xmax.Text = num2str(boxes_croped.bndboxes(i,3));
+            tempbox.ymax.Text = num2str(boxes_croped.bndboxes(i,4));
             object_model.name.Text=boxes_croped.labels{i};
             object_model.bndbox=tempbox;
             xml_croped.annotation.object{i}=object_model;
@@ -130,8 +136,16 @@ function xml_croped = getXmlFromBBs(boxes_croped, xml_model)
     end        
 end
 
-function saveCroped(voc_dir,imgs_croped,xml_croped)
-
+function saveCroped(voc_dir,img_subdir_croped,anno_subdir_croped,img_name,idx,img_croped,xml_croped)
+    % Finally, create the folder if it doesn't exist already.
+    if ~exist([voc_dir,img_subdir_croped], 'dir')
+        mkdir([voc_dir,img_subdir_croped]);
+    end
+    if ~exist([voc_dir,anno_subdir_croped], 'dir')
+        mkdir([voc_dir,anno_subdir_croped]);
+    end
+    imwrite(img_croped,[voc_dir,img_subdir_croped,img_name,'_croped_',num2str(idx),'.jpg']);
+    struct2xml(xml_croped,[voc_dir,anno_subdir_croped,img_name,'_croped_',num2str(idx),'.xml']); 
 end
 
 function [imgRes,xmlRes] = CropRandom(img,xml)
@@ -157,7 +171,7 @@ function [imgs_croped,boxes_croped] = CropFull(img,boxes,labels)
     end
     
     [rects_croped] = GridImg(img, CROP_SIZE_H, CROP_SIZE_W);    
-    showImgWithBBs(img,rects_croped,'r');  
+%     showImgWithBBs(img,rects_croped,'r');  
     
     boxes_cx=(boxes(:,3)+boxes(:,1))/2;
     boxes_cy=(boxes(:,4)+boxes(:,2))/2;
@@ -196,10 +210,10 @@ function [imgs_croped,boxes_croped] = CropFull(img,boxes,labels)
     end
     
     for i=1:size(rects_croped,1)
-        imgs_croped{i} = imcrop(img,[rects_croped(i,1),rects_croped(i,2),CROP_SIZE_W,CROP_SIZE_H]);
-        imshow(imgs_croped{i});
-        showImgWithBBs(imgs_croped{i},boxes_croped{i}.bndboxes,'b');
-        pause;
+        imgs_croped{i,1} = imcrop(img,[rects_croped(i,1),rects_croped(i,2),CROP_SIZE_W,CROP_SIZE_H]);
+%         imshow(imgs_croped{i});
+%         showImgWithBBs(imgs_croped{i},boxes_croped{i}.bndboxes,'b');
+%         pause;
     end
     
 end
