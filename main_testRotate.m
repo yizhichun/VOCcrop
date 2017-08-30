@@ -22,7 +22,7 @@ img_subdir='JPEGImages/';
 train_listfile = 'ImageSets/Main/trainval.txt';
 test_listfile = 'ImageSets/Main/test.txt';
 
-[path_list, name_list, xml_list] = LoadList(ship_dir,train_listfile,anno_subdir,img_subdir);
+[path_list, name_list, xml_list] = LoadVOCList(ship_dir,train_listfile,anno_subdir,img_subdir);
 % crop_SaveForList(path_list, name_list, xml_list,ship_dir_croped,xml_model_filepath);
 rotate_Crope_Scale_SaveForList(path_list, name_list, xml_list,ship_dir_rotated,xml_model_filepath);
 
@@ -90,7 +90,7 @@ function rotate_Crope_Scale_SaveForList(path_list, name_list, xml_list,save_dir,
     end
 end
 
-function [path_list, name_list, xml_list]=LoadList(root_dir,listfile,anno_subdir,img_subdir)
+function [path_list, name_list, xml_list]=LoadVOCList(root_dir,listfile,anno_subdir,img_subdir)
     if exist([root_dir, listfile],'file')
         dbinfo = textread([root_dir, listfile],'%s');
     else
@@ -376,30 +376,9 @@ function [bbs] = GridImg(img, CROP_SIZE_H, CROP_SIZE_W)
             bbs(i_img,2) = y_start(i_y);
             bbs(i_img,3) = x_end(i_x);
             bbs(i_img,4) = y_end(i_y);
-%             imgs{i_img} = imcrop(img,temp_rect);
-%             imshow(imgs{i_img});
             i_img = i_img+1;            
         end
     end
-%     bbs2=[];
-%     bbs2(:,1)=bbs(:,1)+round((w-CROP_SIZE_W)/(num_w-1))/2;
-%     bbs2(:,3)=bbs(:,3)+round((w-CROP_SIZE_W)/(num_w-1))/2;
-%     bbs2(:,2)=bbs(:,2)+round((h-CROP_SIZE_H)/(num_h-1))/2;
-%     bbs2(:,4)=bbs(:,4)+round((h-CROP_SIZE_H)/(num_h-1))/2;
-%     
-%     i_img=1;
-%     for i_x=1:num_w-1
-%         for i_y=1:num_h-1
-%             temp_rect = [x_start(i_x) y_start(i_y) x_end(i_x) y_end(i_y)];
-%             bbs2(i_img,1) = x_start(i_x)+round((w-CROP_SIZE_W)/(num_w-1))/2;
-%             bbs2(i_img,2) = y_start(i_y)+round((h-CROP_SIZE_H)/(num_h-1))/2;
-%             bbs2(i_img,3) = x_end(i_x)+round((w-CROP_SIZE_W)/(num_w-1))/2;
-%             bbs2(i_img,4) = y_end(i_y)+round((h-CROP_SIZE_H)/(num_h-1))/2;
-% %             imgs{i_img} = imcrop(img,temp_rect);
-% %             imshow(imgs{i_img});
-%             i_img = i_img+1;            
-%         end
-%     end
 end
 
 function img_rotated = RotateImageWithCornerFilled(im, angle)
