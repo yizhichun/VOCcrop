@@ -1,5 +1,5 @@
-voc_dir = 'F:\ImageDatabase\shipdetection\VOC\';
-% voc_dir = '/home/haoyou/ImageDB/VOCdevkit/';
+% voc_dir = 'F:\ImageDatabase\shipdetection\VOC\';
+voc_dir = '/home/haoyou/ImageDB/VOCdevkit/';
 
 xml_model_filepath = [voc_dir,'xml_model.xml'];
 
@@ -13,10 +13,13 @@ img_subdir='JPEGImages/';
 anno_subdir_croped='Annotations_croped/';
 img_subdir_croped='JPEGImages_croped/';
 
+anno_subdir_rotated='Annotations_rotated/';
+img_subdir_rotated='JPEGImages_rotated/';
+
 train_listfile = 'ImageSets/Main/trainval.txt';
 test_listfile = 'ImageSets/Main/test.txt';
 
-[pl, nl, xl] = LoadList(ship_dir,test_listfile,anno_subdir,img_subdir);
+[pl, nl, xl] = LoadList(ship_dir,train_listfile,anno_subdir,img_subdir);
 
 % for i=1:length(pl)
 %     img = imread(pl{i});
@@ -30,12 +33,13 @@ test_listfile = 'ImageSets/Main/test.txt';
 %         disp(['Process ',num2str(i),' images, ',num2str(i_img),' croped...']);
 %         xml_croped{i_img,1} = getXmlFromBBs(boxes_croped{i_img},xml2struct(xml_model_filepath));  
 %         if ~isempty(xml_croped{i_img})
-%             saveCroped(ship_dir,img_subdir_croped,anno_subdir_croped,nl{i},i_img,imgs_croped{i_img},xml_croped{i_img});
+%             argument_str=['_croped_',num2str(idx)];
+%             saveCroped(ship_dir,img_subdir_croped,anno_subdir_croped,nl{i},argument_str,imgs_croped{i_img},xml_croped{i_img});
 %         end
 %     end
 % end
 
-for i=9:length(pl)
+for i=1:length(pl)
     img = imread(pl{i});
     xml = xml2struct(xl{i});
 
@@ -47,21 +51,25 @@ for i=9:length(pl)
     disp(['Process ',num2str(i),' images...']);
     if isempty(roboxes) continue; end    
 %     showImgWithRBBs(img,roboxes,'r');
-    [imgRes,rbbsRes] = RotateRBBs(img,roboxes,45);
-%     figure;
-%     showImgWithRBBs(imgRes,rbbsRes,'r');hold on;
-    boxes = getBBSofRBBS(rbbsRes);
-%     showImgWithBBs(img,bbs,'g');hold off;
-    
-%     [imgs_croped, boxes_croped] = CropFull(imgRes,boxes,labels);
-%     
-%     for i_img=1:size(imgs_croped,1)
-%         disp(['Process ',num2str(i),' images, ',num2str(i_img),' croped...']);
-%         xml_croped{i_img,1} = getXmlFromBBs(boxes_croped{i_img},xml2struct(xml_model_filepath));  
-%         if ~isempty(xml_croped{i_img})
-%             saveCroped(ship_dir,img_subdir_croped,anno_subdir_croped,nl{i},i_img,imgs_croped{i_img},xml_croped{i_img});
-%         end
-%     end
+    angle_interval=30;
+    for angle=angle_interval:angle_interval:359
+        [imgRes,rbbsRes] = RotateRBBs(img,roboxes,angle);
+    %     figure;
+    %     showImgWithRBBs(imgRes,rbbsRes,'r');hold on;
+        boxes = getBBSofRBBS(rbbsRes);
+    %     showImgWithBBs(img,bbs,'g');hold off;
+
+        [imgs_croped, boxes_croped] = CropFull(imgRes,boxes,labels);
+
+        for i_img=1:size(imgs_croped,1)
+            disp(['Process ',num2str(i),' images, ', num2str(angle),' rotated,', num2str(i_img),' croped...']);
+            xml_croped{i_img,1} = getXmlFromBBs(boxes_croped{i_img},xml2struct(xml_model_filepath));  
+            if ~isempty(xml_croped{i_img})
+                argument_str=['_rotated_',num2str(angle),'_croped_',num2str(i_img)];
+                saveCroped(ship_dir,img_subdir_rotated,anno_subdir_rotated,nl{i},argument_str,imgs_croped{i_img},xml_croped{i_img});
+            end
+        end
+    end
 end
 
 
@@ -238,7 +246,8 @@ function xml_croped = getXmlFromBBs(boxes_croped, xml_model)
     end        
 end
 
-function saveCroped(voc_dir,img_subdir_croped,anno_subdir_croped,img_name,idx,img_croped,xml_croped)
+function saveCroped(voc_dir,img_subdir_croped,anno_subdir_croped,img_name,...
+    argument_str,img_croped,xml_croped)
     % Finally, create the folder if it doesn't exist already.
     if ~exist([voc_dir,img_subdir_croped], 'dir')
         mkdir([voc_dir,img_subdir_croped]);
@@ -246,8 +255,8 @@ function saveCroped(voc_dir,img_subdir_croped,anno_subdir_croped,img_name,idx,im
     if ~exist([voc_dir,anno_subdir_croped], 'dir')
         mkdir([voc_dir,anno_subdir_croped]);
     end
-    imwrite(img_croped,[voc_dir,img_subdir_croped,img_name,'_croped_',num2str(idx),'.jpg']);
-    struct2xml(xml_croped,[voc_dir,anno_subdir_croped,img_name,'_croped_',num2str(idx),'.xml']); 
+    imwrite(img_croped,[voc_dir,img_subdir_croped,img_name,argument_str,'.jpg']);
+    struct2xml(xml_croped,[voc_dir,anno_subdir_croped,img_name,argument_str,'.xml']); 
 end
 
 function [imgRes,xmlRes] = CropRandom(img,xml)
@@ -403,10 +412,10 @@ end
 
 function [bb] = getBBofRBB(rbb)
     XY = getPathOfRBBs(rbb(1,1),rbb(1,2),rbb(1,3),rbb(1,4),rbb(1,5));
-    xmin = min(XY(1,:));
-    xmax = max(XY(1,:));
-    ymin = min(XY(2,:));
-    ymax = max(XY(2,:));
+    xmin = floor(min(XY(1,:)));
+    xmax = floor(max(XY(1,:)));
+    ymin = floor(min(XY(2,:)));
+    ymax = floor(max(XY(2,:)));
     bb = [xmin,ymin,xmax,ymax];
 end
 
